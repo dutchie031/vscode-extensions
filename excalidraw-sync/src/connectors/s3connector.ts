@@ -1,6 +1,7 @@
-
 import { ExtensionContext, Memento, SecretStorage, window } from "vscode";
-import { S3Client, ListBucketsCommand, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
+import {    S3Client, ListBucketsCommand, ListObjectsV2Command, 
+            GetObjectCommand, PutObjectCommand, DeleteBucketCommand, 
+            DeleteObjectCommand, CreateBucketCommand } from "@aws-sdk/client-s3";
 import { S3SettingsPrompt, S3SettingsResult } from './s3SettingsPrompt';
 
 export class S3Connector {
@@ -97,7 +98,7 @@ export class S3Connector {
         this.currentBucket = bucketName;
     }
     
-    async getBuckets(): Promise<string[]>{
+    async getBuckets(): Promise<string[]> {
         if (this.currentTarget === undefined) {
             return [];
         }
@@ -107,6 +108,57 @@ export class S3Connector {
         const response = await client.send(command);
         const bucketNames = response.Buckets?.map(bucket => bucket.Name || "") || [];
         return bucketNames;
+    }
+
+    async createBucket(bucketName: string): Promise<void> {
+        if (this.currentTarget === undefined) {
+            return;
+        }
+
+        const client = await this.getClient(this.currentTarget);
+        const command = new CreateBucketCommand({
+            Bucket: bucketName
+        });
+        await client.send(command);
+    }
+    
+    async deleteBucket(bucketName: string): Promise<void> {
+        if (this.currentTarget === undefined) {
+            return;
+        }
+
+        const client = await this.getClient(this.currentTarget);
+        
+        // First, list and delete all objects in the bucket
+        let continuationToken: string | undefined;
+        do {
+            const listCommand = new ListObjectsV2Command({
+                Bucket: bucketName,
+                ContinuationToken: continuationToken
+            });
+            const listResponse = await client.send(listCommand);
+            
+            if (listResponse.Contents && listResponse.Contents.length > 0) {
+                // Delete objects individually to avoid Content-MD5 requirement
+                for (const obj of listResponse.Contents) {
+                    if (obj.Key) {
+                        const deleteCommand = new DeleteObjectCommand({
+                            Bucket: bucketName,
+                            Key: obj.Key
+                        });
+                        await client.send(deleteCommand);
+                    }
+                }
+            }
+            
+            continuationToken = listResponse.NextContinuationToken;
+        } while (continuationToken);
+        
+        // Now delete the empty bucket
+        const deleteBucketCommand = new DeleteBucketCommand({
+            Bucket: bucketName
+        });
+        await client.send(deleteBucketCommand);
     }
 
     async addTarget(target: string, context: ExtensionContext): Promise<void> {

@@ -46,6 +46,33 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	vscode.commands.registerCommand('excalidraw-sync.deleteS3Bucket', async (selected: vscode.TreeItem) => {
+		if(selected.id && selected.id.length > 0) {
+
+			const confirmed = await vscode.window.showWarningMessage(
+				`Are you sure you want to delete bucket "${selected.id}"? \n This action cannot be undone.`,
+				{ modal: true },
+				'Delete'
+			);
+
+			if(confirmed === 'Delete') {
+				await s3Connector.deleteBucket(selected.id);
+				vscode.window.showInformationMessage(`Deleted S3 Bucket: ${selected.id}`);
+				treeDataProvider.refresh();
+			}
+		}
+	});
+
+	vscode.commands.registerCommand('excalidraw-sync.createS3Bucket', async () => {
+		const bucketName = await vscode.window.showInputBox({prompt: 'Enter a name for the new S3 Bucket'});
+		if(bucketName && bucketName.length > 0) {
+			await s3Connector.createBucket(bucketName);
+			vscode.window.showInformationMessage(`Created S3 Bucket: ${bucketName}`);
+			treeDataProvider.refresh();
+		}
+	});
+
+
 	vscode.commands.registerCommand('excalidraw-sync.removeS3Target', async (selected: vscode.TreeItem) => {
 		if(selected.id && selected.id.length > 0) {
 			s3Connector.removeTarget(selected.id);
@@ -62,6 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	
 	vscode.commands.registerCommand('excalidraw-sync.addS3Folder', async (selected: vscode.TreeItem) => {
 		if(selected.id && selected.id.length > 0) {
 			const folderName = await vscode.window.showInputBox({prompt: 'Enter a name for the new folder'});
@@ -70,7 +98,11 @@ export function activate(context: vscode.ExtensionContext) {
 				if(selected instanceof S3FileItem){
 					// Has Parent folder
 					const selectedFolder = selected as S3FileItem;
-					const directory = new Directory(folderName, selectedFolder.directory);
+					if(!selectedFolder.isDirectory){
+						vscode.window.showErrorMessage('Cannot add a folder inside a file. Please select a folder.');
+						return;
+					}
+					const directory = new Directory(folderName, selectedFolder.directory as Directory);
 					await s3Connector.addDirectory(directory);
 				} else {
 					// Root folder
