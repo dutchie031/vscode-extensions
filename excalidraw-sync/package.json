@@ -1,0 +1,99 @@
+{
+  "name": "excalidraw-sync",
+  "displayName": "excalidraw-sync",
+  "description": "Syncing my excalidraw drawings ",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.108.1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "excalidraw-sync.removeS3Target",
+        "title": "Remove Target"
+      },
+      {
+        "command": "excalidraw-sync.editS3Target",
+        "title": "Edit Target"
+      },
+      {
+        "command" : "excalidraw-sync.addS3Folder",
+        "title": "Create Folder"
+      }, 
+      {
+        "command" : "excalidraw-sync.addExcalidrawFile",
+        "title": "Create Excalidraw File"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "excalidrawSyncSidebar",
+          "title": "Excalidraw Sync",
+          "icon": "media/logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "excalidrawSyncSidebar": [
+        {
+          "id": "excalidrawSyncPanel",
+          "name": "Excalidraw Sync",
+          "icon": "media/logo.svg"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context" : [
+        {
+          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3target",
+          "command": "excalidraw-sync.removeS3Target",
+          "group": "navigation"
+        },
+        {
+          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3target",
+          "command": "excalidraw-sync.editS3Target",
+          "group": "navigation"
+        },
+        {
+          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3filesection",
+          "command": "excalidraw-sync.addS3Folder",
+          "group": "navigation"
+        },
+        {
+          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3directory",
+          "command": "excalidraw-sync.addS3Folder",
+          "group": "navigation"
+        }
+        
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.978.0" 
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.108.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.52.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}

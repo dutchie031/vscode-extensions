@@ -1,0 +1,22 @@
+// A launch configuration that compiles the extension and then opens it inside a new window
+// Use IntelliSense to learn about possible attributes.
+// Hover to view descriptions of existing attributes.
+// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Run Excalidraw Sync",
+			"type": "extensionHost",
+			
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/excalidraw-sync"
+			],
+			"outFiles": [
+				"${workspaceFolder}/excalidraw-sync/out/**/*.js"
+			],
+			"preLaunchTask": "build excalidraw-sync"
+		}
+	]
+}
