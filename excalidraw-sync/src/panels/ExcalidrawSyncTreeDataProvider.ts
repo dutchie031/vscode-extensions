@@ -12,11 +12,19 @@ export class ExcalidrawSyncTreeDataProvider implements vscode.TreeDataProvider<T
         this.s3Connector  = s3Connector;
     }
 
-    refresh(): void {
-        this._onDidChangeTreeData.fire();
+    refresh(item?: TreeItem): void {
+        this._onDidChangeTreeData.fire(item);
     }
 
     getTreeItem(element: TreeItem): vscode.TreeItem {
+        if(element instanceof S3FileItem && element.label){
+            if(element.isSyncing){
+                element.label = `🔄 ${element.label.toString().replace('🔄 ', '')}`;
+            } else {
+                element.label = element.label.toString().replace('🔄 ', '');
+            }
+        }
+
         return element;
     }
 
@@ -117,6 +125,12 @@ export class ExcalidrawSyncTreeDataProvider implements vscode.TreeDataProvider<T
             const addBucketItem : vscode.TreeItem = new vscode.TreeItem('Add Bucket...', 
                 vscode.TreeItemCollapsibleState.None);
 
+            addBucketItem.command = {
+                command: 'excalidraw-sync.createS3Bucket',
+                title: 'Create S3 Bucket',
+                arguments: []
+            };
+
             items.push(addBucketItem);
 
             return items;
@@ -139,6 +153,11 @@ export class ExcalidrawSyncTreeDataProvider implements vscode.TreeDataProvider<T
                 treeItem.contextValue = 'excalidrawsync_s3directory';
             } else {
                 treeItem.contextValue = 'excalidrawsync_s3file';
+                treeItem.command = {
+                    command: 'excalidraw-sync.openExcalidrawFile',
+                    title: 'Open Excalidraw File',
+                    arguments: [treeItem]
+                };
             }
 
             treeItems.push(treeItem);
@@ -156,14 +175,21 @@ class SectionItem extends vscode.TreeItem {
 }
 
 export class S3FileItem extends vscode.TreeItem {
-    directory: FileObject | undefined;
+    directory: Directory | undefined;
+    file : File | undefined;
     isDirectory: boolean;
+
+    isSyncing: boolean = false;
 
     constructor(label: string, id: string, isDirectory: boolean, dirRepresentation?: FileObject) {
         const collapsibleType = isDirectory ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
         super(label, collapsibleType);
         this.id = id;
-        this.directory = dirRepresentation;
+        if(!isDirectory){
+            this.file = dirRepresentation as File;
+        } else {
+            this.directory = dirRepresentation as Directory;
+        }
         this.isDirectory = isDirectory;
         if(isDirectory){
             this.contextValue = 'excalidrawsync_s3directory';

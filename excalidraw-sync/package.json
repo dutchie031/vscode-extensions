@@ -9,29 +9,57 @@
   "categories": [
     "Other"
   ],
+  "publisher": "dutchie031",
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/dutchie031/vscode-extensions.git"
+  },
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "excalidraw-sync.removeS3Target",
-        "title": "Dutchie ExSy: Remove Target"
+        "title": "Remove Target",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
       },
       {
         "command": "excalidraw-sync.editS3Target",
-        "title": "Dutchie ExSy: Edit Target"
+        "title": "Edit Target",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
       },
       {
         "command": "excalidraw-sync.addS3Folder",
-        "title": "Dutchie ExSy: Create Folder"
+        "title": "Create Folder",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
       },
       {
         "command": "excalidraw-sync.addExcalidrawFile",
-        "title": "Dutchie ExSy: Create Excalidraw File"
+        "title": "Create Excalidraw File",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
       },
       {
         "command": "excalidraw-sync.deleteS3Bucket",
-        "title": "Dutchie ExSy: Delete S3 Bucket"
+        "title": "Delete S3 Bucket",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
+      }, 
+      {
+        "command": "excalidraw-sync.createExcalidrawFile",
+        "title": "Create Excalidraw File",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
+        
+      },
+      {
+        "command" : "excalidraw-sync.deleteFile",
+        "title": "Delete",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
       }
     ],
     "viewsContainers": {
@@ -77,6 +105,16 @@
         {
           "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3bucket",
           "command": "excalidraw-sync.deleteS3Bucket",
+          "group": "navigation"
+        },
+        {
+          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3directory",
+          "command": "excalidraw-sync.createExcalidrawFile",
+          "group": "navigation"
+        },
+        {
+          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3file",
+          "command": "excalidraw-sync.deleteFile",
           "group": "navigation"
         }
       ]

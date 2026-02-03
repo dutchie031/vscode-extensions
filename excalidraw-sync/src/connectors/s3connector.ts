@@ -1,8 +1,9 @@
-import { ExtensionContext, Memento, SecretStorage, window } from "vscode";
+import { ExtensionContext, Memento, SecretStorage, Uri, window } from "vscode";
 import {    S3Client, ListBucketsCommand, ListObjectsV2Command, 
             GetObjectCommand, PutObjectCommand, DeleteBucketCommand, 
-            DeleteObjectCommand, CreateBucketCommand } from "@aws-sdk/client-s3";
+            DeleteObjectCommand, CreateBucketCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { S3SettingsPrompt, S3SettingsResult } from './s3SettingsPrompt';
+import * as vscode from 'vscode';
 
 export class S3Connector {
     
@@ -11,17 +12,30 @@ export class S3Connector {
     targets: string[] = [];
     settings: Map<string, TargetSettings> = new Map();
     clients: Map<string, S3Client> = new Map();
+    
 
     currentTarget: string | undefined;
     currentBucket: string | undefined;
 
+    private storagePath : Uri;
+
     constructor(extensionContext: ExtensionContext) {
         this.secretStorage = extensionContext.secrets;
         this.globalState = extensionContext.globalState;
+
+        this.storagePath = extensionContext.globalStorageUri;
+        const watcher = vscode.workspace.createFileSystemWatcher(this.storagePath.fsPath,
+            false, false, false
+        );
+        watcher.onDidChange(async (uri) => {
+            // Handle changes if needed
+            console.log(`Storage path changed: ${uri.fsPath}`);
+        });
+
+        
+
         this.targets = this.globalState.get<string[]>("s3Targets") || [];
-
         this.currentTarget = this.targets.length > 0 ? this.targets[0] : undefined;
-
         this.targets.forEach(async (target) => {
             await this.verifySettings(target);
         });
@@ -29,7 +43,6 @@ export class S3Connector {
 
 
     async verifySettings(target: string) : Promise<boolean> {
-
         let settings = this.settings.get(target);
         if(!settings) {
             settings = new TargetSettings();
@@ -245,7 +258,7 @@ export class S3Connector {
         }
 
         const client = await this.getClient(this.currentTarget);
-        const prefix = parent ?  parent.getObjectKey() + '/' : '';
+        const prefix = parent ?  parent.getObjectKey() : '';
         const command = new ListObjectsV2Command({
             Bucket: this.currentBucket,
             Prefix: prefix,
@@ -257,6 +270,9 @@ export class S3Connector {
         for (const commonPrefix of response.CommonPrefixes || []) {
             if (commonPrefix.Prefix) {
                 const dirName = commonPrefix.Prefix.slice(prefix.length).replace(/\/$/, '');
+                if (dirName.length === 0) {
+                    continue;
+                }
                 const dir = new Directory(dirName, parent as Directory | undefined);
                 items.push(dir);
             }
@@ -266,18 +282,65 @@ export class S3Connector {
             if (obj.Key && obj.Key !== prefix) {
                 const fileName = obj.Key.slice(prefix.length);
                 if (!fileName.endsWith('/')) { // Exclude directories
-                    const file = new File(fileName, parent as Directory | undefined);
+                    const size = obj.Size || 0;
+                    const file = new File(fileName, size, parent as Directory | undefined);
                     items.push(file);
                 }
             }
         }
         return items;
     }
+    
 
-    async getFile(file: File): Promise<Uint8Array> {
+    async getAndSyncLocalFilePath(file: File): Promise<Uri> {
         
         if (this.currentTarget === undefined || this.currentBucket === undefined) {
-            return new Uint8Array(0);
+            window.showErrorMessage("No S3 target or bucket selected");
+            throw new Error("No S3 target or bucket selected");
+        }
+
+        const fileExists = await this.fileExists(file);
+        const fileUri = this.toFileUri(file);
+        if (!fileExists) {
+            const bufferedfile = await this.getFileFromS3(file);
+            await vscode.workspace.fs.writeFile(fileUri, bufferedfile);
+            return fileUri;
+        }
+
+        const localStat = await vscode.workspace.fs.stat(fileUri);
+        const s3Timestamp = await this.getUpdateTimestamp(file);
+        if (s3Timestamp && localStat.mtime < s3Timestamp.getTime()) {
+            const bufferedfile = await this.getFileFromS3(file);
+            await vscode.workspace.fs.writeFile(fileUri, bufferedfile);
+        }
+
+        return fileUri;
+    }
+
+    private async getUpdateTimestamp(file: File): Promise<Date | null> {
+        if (this.currentTarget === undefined || this.currentBucket === undefined) {
+            window.showErrorMessage("No S3 target or bucket selected");
+            throw new Error("No S3 target or bucket selected");
+        }
+
+        const client = await this.getClient(this.currentTarget);
+        const command = new HeadObjectCommand({
+            Bucket: this.currentBucket,
+            Key: file.getObjectKey(),
+        });
+        const response = await client.send(command);
+
+        if (response.Metadata && response.Metadata['lastmodified']) {
+            return new Date(response.Metadata['lastmodified']);
+        }
+        
+        return null;
+    }
+
+    private async getFileFromS3(file: File): Promise<Uint8Array> {
+        if (this.currentTarget === undefined || this.currentBucket === undefined) {
+            window.showErrorMessage("No S3 target or bucket selected");
+            throw new Error("No S3 target or bucket selected");
         }
 
         const client = await this.getClient(this.currentTarget);
@@ -286,31 +349,14 @@ export class S3Connector {
             Key: file.getObjectKey(),
         });
         const response = await client.send(command);
+        if(response.$metadata.httpStatusCode !== 200){
+            window.showErrorMessage(`Failed to get file ${file.name} from S3. HTTP Status Code: ${response.$metadata.httpStatusCode}`);
+            throw new Error(`Failed to get file ${file.name} from S3`);
+        }
 
         if (response.Body) {
-            const stream = response.Body as ReadableStream<Uint8Array>;
-            const reader = stream.getReader();
-            const chunks: Uint8Array[] = [];
-            let done = false;
-
-            while (!done) {
-                const { value, done: doneReading } = await reader.read();
-                if (value) {
-                    chunks.push(value);
-                }
-                done = doneReading;
-            }
-
-            // Concatenate all chunks into a single ArrayBuffer
-            const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-            const arrayBuffer = new Uint8Array(totalLength);
-            let offset = 0;
-            for (const chunk of chunks) {
-                arrayBuffer.set(chunk, offset);
-                offset += chunk.length;
-            }
-
-            return arrayBuffer;
+            const bytes = await response.Body?.transformToByteArray();
+            return bytes;
         }
 
         return new Uint8Array(0);
@@ -325,24 +371,74 @@ export class S3Connector {
         const command = new PutObjectCommand({
             Bucket: this.currentBucket,
             Key: key.endsWith('/') ? key + '/' : key,
-            Body: ''
+            Body: '',
         });
         await client.send(command);
     }
 
-    async addFile(file: File, content: Uint8Array): Promise<void> {
+    async updateFile(file: File, content: Uint8Array): Promise<void> {
         if (this.currentTarget === undefined || this.currentBucket === undefined) {
+            window.showErrorMessage("Could not update file due to not having a target or bucket selected");
             return;
         }
-        
+
+        const fileUri = this.toFileUri(file);
+        const stats = await vscode.workspace.fs.stat(fileUri);
+        const lastModified = new Date(stats.mtime).toISOString();
+
         const key = file.getObjectKey();
         const client = await this.getClient(this.currentTarget);
         const command = new PutObjectCommand({
             Bucket: this.currentBucket,
             Key: key,
-            Body: content
+            Body: content,
+            Metadata: {
+                uploadedBy: 'excalidraw-sync',
+                lastModified: lastModified
+            }
         });
         await client.send(command);
+    }
+
+    async deleteFile(file: File): Promise<void> {
+
+        if (this.currentTarget === undefined || this.currentBucket === undefined) {
+            window.showErrorMessage("Could not delete file due to not having a target or bucket selected");
+            return;
+        }
+
+        const client = await this.getClient(this.currentTarget);
+        const command = new DeleteObjectCommand({
+            Bucket: this.currentBucket,
+            Key: file.getObjectKey(),
+        });
+        await client.send(command);
+
+        const fileUri = this.toFileUri(file);
+        try {
+            await vscode.workspace.fs.delete(fileUri);
+        } catch (error) {
+            console.error(`Failed to delete local file: ${fileUri.fsPath}`, error);
+            window.showErrorMessage(`Failed to delete local file: ${fileUri.fsPath}`);
+        }
+    }
+
+    toFileUri(file: File): Uri {
+        if (this.currentTarget === undefined || this.currentBucket === undefined) {
+            throw new Error("No S3 target or bucket selected");
+        }
+        const fileUri = Uri.joinPath(this.storagePath, this.currentTarget!, this.currentBucket!, file.getObjectKey());
+        return fileUri;
+    }
+
+    private async fileExists(file: File): Promise<boolean> {
+        const fileUri = this.toFileUri(file);
+        try {
+            await vscode.workspace.fs.stat(fileUri);
+            return true;
+        } catch (error) {
+            return false;
+        }
     }
 }
 
@@ -392,7 +488,9 @@ export class Directory extends FileObject {
 }
 
 export class File extends FileObject {
-    constructor(fileName: string, parentDir?: Directory){
+    sizeBytes : number;
+    constructor(fileName: string, sizeBytes: number, parentDir?: Directory){
         super(fileName, false, parentDir);
+        this.sizeBytes = sizeBytes;
     }
 }
