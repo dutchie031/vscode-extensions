@@ -269,7 +269,7 @@ const defaultExcalidrawFile = {
 	source: "excalidraw-sync",
 	elements: [],
 	appState: {
-		viewBackgroundColor: "#1c1d27"
+		viewBackgroundColor: "#222430"
 	},
 	files: {}
 };
