@@ -1,8 +1,10 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { ExcalidrawSyncTreeDataProvider, S3FileItem } from './panels/ExcalidrawSyncTreeDataProvider';
-import { S3Connector, Directory, File } from './connectors/s3connector';
+import { DutchiesFilesConnector } from './connectors/dutchiesFiles';
+import { LocalFilesMirror } from './connectors/localFiles';
+import { DutchieFilesSyncTreeDataProvider, TreeItem } from './panels/DutchieFilesSyncTreeDataProvider';
+import { File, Folder, FileItem } from './models/files';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -12,8 +14,10 @@ export function activate(context: vscode.ExtensionContext) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "excalidraw-sync" is now active!');
 
-	const s3Connector = new S3Connector(context);
-	const _fileWatchers = new Map<string, S3FileItem>();
+	const localFilesMirror = new LocalFilesMirror(context);
+	const dutchiesFilesConnector = new DutchiesFilesConnector(context, localFilesMirror);
+
+	const _fileWatchers = new Map<string, TreeItem>();
 	function closeAllTabs(){
 		for (const tabGroup of vscode.window.tabGroups.all) {
 			for (const tab of tabGroup.tabs) {
@@ -29,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	const treeDataProvider = new ExcalidrawSyncTreeDataProvider(s3Connector);
+	const treeDataProvider = new DutchieFilesSyncTreeDataProvider(dutchiesFilesConnector);
 	context.subscriptions.push(
 		vscode.window.registerTreeDataProvider(
 			"excalidrawSyncPanel",
@@ -37,146 +41,87 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	vscode.commands.registerCommand('excalidraw-sync.addS3Target', async () => {
-		const targetName = await vscode.window.showInputBox({prompt: 'Enter a name for the new S3 Target'});
-		if(targetName && targetName.length > 0) {
-			await s3Connector.addTarget(targetName, context);
-			treeDataProvider.refresh();
-		}
-	});
+	vscode.commands.registerCommand('excalidraw-sync.addFolder', async (selected: vscode.TreeItem) => {
 
-	vscode.commands.registerCommand('excalidraw-sync.selectS3Target', async (selected: string) => {
-		if(selected && selected.length > 0) {
-			s3Connector.setTarget(selected);
-			closeAllTabs();
-			vscode.window.showInformationMessage(`Selected S3 Target: ${selected}`);
-			treeDataProvider.refresh();
-		}
-	});
-
-	vscode.commands.registerCommand('excalidraw-sync.selectS3Bucket', async (selected: string) => {
-		if(selected && selected.length > 0) {
-			s3Connector.selectBucket(selected);
-			closeAllTabs();
-			vscode.window.showInformationMessage(`Selected S3 Bucket: ${selected}`);
-			treeDataProvider.refresh();
-		}
-	});
-
-	vscode.commands.registerCommand('excalidraw-sync.deleteS3Bucket', async (selected: vscode.TreeItem) => {
-		if(selected.id && selected.id.length > 0) {
-
-			const confirmed = await vscode.window.showWarningMessage(
-				`Are you sure you want to delete bucket "${selected.id}"? \n This action cannot be undone.`,
-				{ modal: true },
-				'Delete'
-			);
-
-			if(confirmed === 'Delete') {
-				await s3Connector.deleteBucket(selected.id);
-				vscode.window.showInformationMessage(`Deleted S3 Bucket: ${selected.id}`);
-				treeDataProvider.refresh();
-			}
-		}
-	});
-
-	vscode.commands.registerCommand('excalidraw-sync.createS3Bucket', async () => {
-		const bucketName = await vscode.window.showInputBox({prompt: 'Enter a name for the new S3 Bucket'});
-		if(bucketName && bucketName.length > 0) {
-			await s3Connector.createBucket(bucketName);
-			vscode.window.showInformationMessage(`Created S3 Bucket: ${bucketName}`);
-			treeDataProvider.refresh();
-		}
-	});
-
-
-	vscode.commands.registerCommand('excalidraw-sync.removeS3Target', async (selected: vscode.TreeItem) => {
-		if(selected.id && selected.id.length > 0) {
-			s3Connector.removeTarget(selected.id);
-			vscode.window.showInformationMessage(`Removed S3 Target: ${selected}`);
-			treeDataProvider.refresh();
-		}
-	});
-
-	vscode.commands.registerCommand('excalidraw-sync.editS3Target', async (selected: vscode.TreeItem) => {
-		if(selected.id && selected.id.length > 0) {
-			await s3Connector.editTarget(selected.id, context);
-			vscode.window.showInformationMessage(`Edited S3 Target: ${selected}`);
-			treeDataProvider.refresh();
-		}
-	});
-
-	
-	vscode.commands.registerCommand('excalidraw-sync.addS3Folder', async (selected: vscode.TreeItem) => {
-		if(selected.id && selected.id.length > 0) {
+		try{
 			const folderName = await vscode.window.showInputBox({prompt: 'Enter a name for the new folder'});
 			if(folderName && folderName.length > 0) {
-				
-				if(selected instanceof S3FileItem){
-					// Has Parent folder
-					const selectedFolder = selected as S3FileItem;
-					if(!selectedFolder.isDirectory){
-						vscode.window.showErrorMessage('Cannot add a folder inside a file. Please select a folder.');
+
+				let parentPath = "";
+				if(selected instanceof TreeItem){
+					const parentItem = selected.getFileItem();
+					if(parentItem && parentItem.isDirectory === false){
+						vscode.window.showErrorMessage('Cannot add a folder inside a file. Please select a folder or the root.');
 						return;
 					}
-					const directory = new Directory(folderName, selectedFolder.directory);
-					await s3Connector.addDirectory(directory);
-				} else {
-					// Root folder
-					const directory = new Directory(folderName, undefined);
-					await s3Connector.addDirectory(directory);
+					parentPath = parentItem ? parentItem.path : "";
 				}
+
+				const newFolderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
+				let newFolder = new Folder(folderName, newFolderPath);
+				await dutchiesFilesConnector.createFolder(newFolder);
+				vscode.window.showInformationMessage(`Created folder: ${newFolderPath}`);
+
 				treeDataProvider.refresh();
 			}
+		} catch(error){
+			vscode.window.showErrorMessage(`Failed to create folder: ${error}`);
+			return;
 		}
 	});
 
 	vscode.commands.registerCommand('excalidraw-sync.createExcalidrawFile', async (selected: vscode.TreeItem) => {
-		if(selected.id && selected.id.length > 0) {
-			let fileName = await vscode.window.showInputBox({prompt: 'Enter a name for the new Excalidraw file'});
-			if(fileName && fileName.length > 0) {
-				if (!fileName.endsWith('.excalidraw.json')) {
-					fileName += '.excalidraw.json';
+		let fileName = await vscode.window.showInputBox({prompt: 'Enter a name for the new Excalidraw file'});
+		if(fileName && fileName.length > 0) {
+			if (!fileName.endsWith('.excalidraw.json')) {
+				fileName += '.excalidraw.json';
+			}
+
+			const excalidrawContent = JSON.stringify(defaultExcalidrawFile);
+			const encoder = new TextEncoder();
+			const contentArray = encoder.encode(excalidrawContent);
+
+			let parentPath : string = "";
+			if (selected instanceof TreeItem) {
+				const parentItem = selected.getFileItem();
+				if (parentItem && parentItem.isDirectory === false) {
+					vscode.window.showErrorMessage('Cannot add a file inside a file. Please select a folder or the root.');
+					return;
 				}
-
-				const excalidrawContent = JSON.stringify(defaultExcalidrawFile);
-				const encoder = new TextEncoder();
-				const contentArray = encoder.encode(excalidrawContent);
-
-				if(selected instanceof S3FileItem){
-					// Has Parent folder
-					const selectedFolder = selected as S3FileItem;
-					if(!selectedFolder.isDirectory){
-						vscode.window.showErrorMessage('Cannot add a file inside a file. Please select a folder.');
-						return;
-					}
-					
-					const file = new File(fileName, 12, selectedFolder.directory as Directory);
-					const uri = s3Connector.toFileUri(file);
-					await vscode.workspace.fs.writeFile(uri, contentArray);
-					await s3Connector.updateFile(file, contentArray);
-
-					treeDataProvider.refresh(selectedFolder);
-
-					const children = await treeDataProvider.getChildren(selectedFolder);
-					const createdFileItem = children.find(item => item.id === file.getObjectKey());
-					if(createdFileItem && createdFileItem instanceof S3FileItem){
-						// Open the newly created file
-						vscode.commands.executeCommand(
-							"excalidraw-sync.openExcalidrawFile",
-							createdFileItem as S3FileItem
-						);
-					}
+				if (parentItem) {
+					parentPath = parentItem.path;
 				}
+			}
+
+			const newFilePath = parentPath ? `${parentPath}/${fileName}` : fileName;
+			const file = new File(fileName, newFilePath);
+			await dutchiesFilesConnector.updateFile(file, contentArray);
+			await localFilesMirror.syncFile(file, contentArray);
+			vscode.window.showInformationMessage(`Created file: ${newFilePath}`);
+
+			if(selected instanceof TreeItem){
+				treeDataProvider.refresh(selected as TreeItem);
+
+				const children = await treeDataProvider.getChildren(selected) as TreeItem[];
+				const createdFileItem = children.find(item => item.getFileItem().path === file.path);
+				if(createdFileItem && createdFileItem instanceof TreeItem){
+					// Open the newly created file
+					vscode.commands.executeCommand(
+						"excalidraw-sync.openExcalidrawFile",
+						createdFileItem as TreeItem
+					);
+				}
+			} else {
+				treeDataProvider.refresh();
 			}
 		}
 	});
 	
 	vscode.commands.registerCommand('excalidraw-sync.deleteFile', async (selected: vscode.TreeItem) => {
 		if(selected.id && selected.id.length > 0) {
-			if(selected instanceof S3FileItem){
-				const fileItem = selected as S3FileItem;
-				if(fileItem.isDirectory === true || !fileItem.file){
+			if(selected instanceof TreeItem){
+				const fileItem = selected.getFileItem();
+				if(fileItem.isDirectory === true){
 					vscode.window.showErrorMessage('Can only delete files. Please select a file to delete.');
 					return;
 				}
@@ -186,22 +131,37 @@ export function activate(context: vscode.ExtensionContext) {
 					{ modal: true },
 					'Delete'
 				);
+				
 				if(confirmed === 'Delete') {
-					await s3Connector.deleteFile(fileItem.file);
+					await dutchiesFilesConnector.deleteFile(fileItem as File);
 					vscode.window.showInformationMessage(`Deleted file: ${selected.id}`);
 					treeDataProvider.refresh();
 				}
 			}
 		}
 	});
+
+	vscode.commands.registerCommand('excalidraw-sync.refresh', async () => {
+		closeAllTabs();
+		treeDataProvider.refresh();
+	});
+
+	vscode.commands.registerCommand('excalidraw-sync.setApiKey', async () => {
+		const apiKey = await vscode.window.showInputBox({prompt: 'Enter your DutchiesFiles API Key', ignoreFocusOut: true, password: true});
+		if(apiKey && apiKey.length > 0) {
+			await dutchiesFilesConnector.setApiKey(apiKey);
+			vscode.window.showInformationMessage('API Key saved successfully!');
+			treeDataProvider.refresh();
+		}
+	});
 	
 	const _updateTimes = new Map<string, Date>();
-	vscode.commands.registerCommand('excalidraw-sync.openExcalidrawFile', async (fileItem: S3FileItem) => {
-		const fileObject = fileItem.file;
+	vscode.commands.registerCommand('excalidraw-sync.openExcalidrawFile', async (fileItem: TreeItem) => {
+		const fileObject = fileItem.getFileItem();
 		if(fileObject && fileObject.name.length > 0) {
 			fileItem.isSyncing = true;
 			treeDataProvider.refresh(fileItem);
-			const fileUri = await s3Connector.getAndSyncLocalFilePath(fileObject);
+			const fileUri = await dutchiesFilesConnector.getAndSyncLocalFilePath(fileObject as File);
 			fileItem.isSyncing = false;
 			treeDataProvider.refresh(fileItem);
 			await vscode.commands.executeCommand(
@@ -237,7 +197,7 @@ export function activate(context: vscode.ExtensionContext) {
 	
 	const syncInterval = setInterval(async () => {
 		for (const [fileUri, fileItem] of _fileWatchers) {
-			if(fileItem.isDirectory === true || !fileItem.file){
+			if(fileItem.getFileItem().isDirectory === true){
 				continue;
 			}
 
@@ -250,7 +210,7 @@ export function activate(context: vscode.ExtensionContext) {
 				fileItem.isSyncing = true;
 				treeDataProvider.refresh(fileItem);
 				console.log(`Detected changes for ${fileUri.toString()}, syncing to S3...`);
-				await s3Connector.updateFile(fileItem.file, await vscode.workspace.fs.readFile(uri));
+				await dutchiesFilesConnector.updateFile(fileItem.getFileItem() as File, await vscode.workspace.fs.readFile(uri));
 				fileItem.isSyncing = false;
 				treeDataProvider.refresh(fileItem);
 				_updateTimes.set(fileUri, modifiedTime);

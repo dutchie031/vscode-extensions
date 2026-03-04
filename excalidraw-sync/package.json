@@ -19,19 +19,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "excalidraw-sync.removeS3Target",
-        "title": "Remove Target",
-        "category": "Dutchie Excalidraw Sync",
-        "enablement": "view == excalidrawSyncPanel"
-      },
-      {
-        "command": "excalidraw-sync.editS3Target",
-        "title": "Edit Target",
-        "category": "Dutchie Excalidraw Sync",
-        "enablement": "view == excalidrawSyncPanel"
-      },
-      {
-        "command": "excalidraw-sync.addS3Folder",
+        "command": "excalidraw-sync.addFolder",
         "title": "Create Folder",
         "category": "Dutchie Excalidraw Sync",
         "enablement": "view == excalidrawSyncPanel"
@@ -43,12 +31,6 @@
         "enablement": "view == excalidrawSyncPanel"
       },
       {
-        "command": "excalidraw-sync.deleteS3Bucket",
-        "title": "Delete S3 Bucket",
-        "category": "Dutchie Excalidraw Sync",
-        "enablement": "view == excalidrawSyncPanel"
-      }, 
-      {
         "command": "excalidraw-sync.createExcalidrawFile",
         "title": "Create Excalidraw File",
         "category": "Dutchie Excalidraw Sync",
@@ -58,6 +40,18 @@
       {
         "command" : "excalidraw-sync.deleteFile",
         "title": "Delete",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
+      },
+      {
+        "command": "excalidraw-sync.refresh",
+        "title": "Refresh",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
+      },
+      {
+        "command": "excalidraw-sync.setApiKey",
+        "title": "Set API Key",
         "category": "Dutchie Excalidraw Sync",
         "enablement": "view == excalidrawSyncPanel"
       }
@@ -83,38 +77,25 @@
     "menus": {
       "view/item/context": [
         {
-          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3target",
-          "command": "excalidraw-sync.removeS3Target",
+          "when": "view == excalidrawSyncPanel && viewItem == treeitem_directory",
+          "command": "excalidraw-sync.addFolder",
           "group": "navigation"
         },
         {
-          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3target",
-          "command": "excalidraw-sync.editS3Target",
-          "group": "navigation"
-        },
-        {
-          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3filesection",
-          "command": "excalidraw-sync.addS3Folder",
-          "group": "navigation"
-        },
-        {
-          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3directory",
-          "command": "excalidraw-sync.addS3Folder",
-          "group": "navigation"
-        },
-        {
-          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3bucket",
-          "command": "excalidraw-sync.deleteS3Bucket",
-          "group": "navigation"
-        },
-        {
-          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3directory",
+          "when": "view == excalidrawSyncPanel && viewItem == treeitem_directory",
           "command": "excalidraw-sync.createExcalidrawFile",
           "group": "navigation"
         },
         {
-          "when": "view == excalidrawSyncPanel && viewItem == excalidrawsync_s3file",
+          "when": "view == excalidrawSyncPanel && viewItem == treeitem_file",
           "command": "excalidraw-sync.deleteFile",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "when": "view == excalidrawSyncPanel",
+          "command": "excalidraw-sync.addFolder",
           "group": "navigation"
         }
       ]
