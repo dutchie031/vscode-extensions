@@ -1,0 +1,1 @@
+{"root":["./src/commands.ts","./src/document.ts","./src/editor.ts","./src/extension.ts","./src/uri-handler.ts","./src/connectors/dutchiesfiles.ts","./src/connectors/localfiles.ts","./src/models/files.ts","./src/panels/dutchiefilessynctreedataprovider.ts","./src/test/extension.test.ts"],"version":"5.9.3"}
