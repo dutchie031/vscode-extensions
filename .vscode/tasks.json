@@ -4,11 +4,31 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "build excalidraw-sync",
+			"label": "watch excalidraw-sync",
 			"type": "npm",
 			"script": "watch",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
+			"path": "${workspaceFolder}/excalidraw-sync",
+			"options": {
+				"cwd": "${workspaceFolder}/excalidraw-sync"
+			},
+			"dependsOn": [
+				"build excalidraw-sync"
+			],
+			"presentation": {
+				"reveal": "never"
+			},
+			"group": {
+				"kind": "build"
+			}
+		},
+		{
+			"label": "build excalidraw-sync",
+			"type": "npm",
+			"script": "build",
+			"problemMatcher": "$tsc",
+			"isBackground": false,
 			"path": "${workspaceFolder}/excalidraw-sync",
 			"options": {
 				"cwd": "${workspaceFolder}/excalidraw-sync"
@@ -19,6 +39,6 @@
 			"group": {
 				"kind": "build"
 			}
-		}
+		},
 	]
 }

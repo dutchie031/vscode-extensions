@@ -17,10 +17,29 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "excalidrawSync.excalidrawEditor",
+        "displayName": "Excalidraw",
+        "priority": "default",
+        "selector": [
+           { "filenamePattern": "*.excalidraw" },
+            { "filenamePattern": "*.excalidraw.json" },
+            { "filenamePattern": "*.excalidraw.svg" },
+            { "filenamePattern": "*.excalidraw.png" }
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "excalidraw-sync.addFolder",
         "title": "Create Folder",
+        "category": "Dutchie Excalidraw Sync",
+        "enablement": "view == excalidrawSyncPanel"
+      },
+      {
+        "command": "excalidraw-sync.refreshFiles",
+        "title": "Refresh Files",
         "category": "Dutchie Excalidraw Sync",
         "enablement": "view == excalidrawSyncPanel"
       },
@@ -54,6 +73,11 @@
         "title": "Set API Key",
         "category": "Dutchie Excalidraw Sync",
         "enablement": "view == excalidrawSyncPanel"
+      },
+      {
+        "command": "excalidraw-sync.openExcalidrawWebview",
+        "title": "Open Excalidraw Webview",
+        "category": "Dutchie Excalidraw Sync"
       }
     ],
     "viewsContainers": {
@@ -97,20 +121,23 @@
           "when": "view == excalidrawSyncPanel",
           "command": "excalidraw-sync.addFolder",
           "group": "navigation"
+        },
+        {
+          "when": "view == excalidrawSyncPanel",
+          "command": "excalidraw-sync.refreshFiles",
+          "group": "navigation"
         }
       ]
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "build-webview": "cd webview && npm install && npm run build",
+    "build": "npm run build-webview && npm install && tsc -b",
+    "watch": "tsc -p ./ --watch",
+    "vscode:prepublish": "npm run build"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.978.0",
+    "js-base64": "3.7.2",
     "compile": "^0.0.2"
   },
   "devDependencies": {

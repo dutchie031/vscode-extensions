@@ -16,7 +16,7 @@
 			"outFiles": [
 				"${workspaceFolder}/excalidraw-sync/out/**/*.js"
 			],
-			"preLaunchTask": "build excalidraw-sync"
+			"preLaunchTask": "watch excalidraw-sync"
 		}
 	]
 }

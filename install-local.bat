@@ -5,12 +5,13 @@ REM Navigate to the extension directory
 cd excalidraw-sync
 if errorlevel 1 exit /b 1
 
+
 REM Install dependencies if needed
-call npm install
+call yarn install
 if errorlevel 1 exit /b 1
 
 REM Compile the extension
-call npm run compile
+call yarn compile
 if errorlevel 1 exit /b 1
 
 REM Package the extension as a .vsix file (skip README check, include dependencies)

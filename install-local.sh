@@ -6,11 +6,12 @@ set -e
 # Navigate to the extension directory
 cd excalidraw-sync
 
+
 # Install dependencies if needed
-npm install
+yarn install
 
 # Compile the extension
-npm run compile
+yarn compile
 
 # Package the extension as a .vsix file (skip README check, include dependencies)
 npx @vscode/vsce package --allow-star-activation
