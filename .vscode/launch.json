@@ -17,6 +17,12 @@
 				"${workspaceFolder}/excalidraw-sync/out/**/*.js"
 			],
 			"preLaunchTask": "watch excalidraw-sync"
+		},
+		{
+			"name": "Start Excalidraw Dev Server",
+			"type": "node",
+			"request": "launch",
+			"preLaunchTask": "start excalidraw dev server"
 		}
 	]
 }

@@ -33,6 +33,9 @@
 			"options": {
 				"cwd": "${workspaceFolder}/excalidraw-sync"
 			},
+			"dependsOn": [
+				"build excalidraw packages"
+			],
 			"presentation": {
 				"reveal": "never"
 			},
@@ -40,5 +43,48 @@
 				"kind": "build"
 			}
 		},
+		{
+			"label": "build excalidraw packages",
+			"type": "shell",
+			"command": "rm -rf packages/*/dist packages/*/types 2>/dev/null || true; yarn build:packages",
+			"problemMatcher": [],
+			"options": {
+				"cwd": "${workspaceFolder}/excalidraw"
+			},
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": {
+				"kind": "build"
+			}
+		},
+		{
+			"label": "start excalidraw dev server",
+			"type": "npm",
+			"script": "start",
+			"isBackground": true,
+			"path": "${workspaceFolder}/excalidraw",
+			"options": {
+				"cwd": "${workspaceFolder}/excalidraw"
+			},
+			"problemMatcher": {
+				"pattern": {
+					"regexp": ".",
+					"file": 1,
+					"location": 2,
+					"message": 3
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": ".",
+					"endsPattern": "(Local:|ready in)"
+				}
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		}
 	]
 }

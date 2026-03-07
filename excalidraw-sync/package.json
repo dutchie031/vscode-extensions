@@ -131,8 +131,10 @@
     }
   },
   "scripts": {
+    "clean-excalidraw": "cd ../excalidraw && (rm -rf packages/*/dist packages/*/types 2>/dev/null || true)",
+    "build-excalidraw": "npm run clean-excalidraw && cd ../excalidraw && yarn build:packages",
     "build-webview": "cd webview && npm install && npm run build",
-    "build": "npm run build-webview && npm install && tsc -b",
+    "build": "npm run build-excalidraw && npm run build-webview && npm install && tsc -b",
     "watch": "tsc -p ./ --watch",
     "vscode:prepublish": "npm run build"
   },
